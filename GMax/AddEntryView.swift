@@ -1,5 +1,3 @@
-// MARK: - Add Entry View
-import Foundation
 import SwiftUI
 
 struct AddEntryView: View {
@@ -16,18 +14,20 @@ struct AddEntryView: View {
     @State private var inputImage: UIImage? = nil
     @State private var mediaItems: [EntryMedia] = []
     @State private var isRecording = false
-    @State private var recordedText = ""
     
+    // Simplified UI with sections
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Template")) {
-                    Picker("Template", selection: $selectedTemplateId) {
+                // Template picker
+                Section(header: Text("Template").font(.subheadline)) {
+                    Picker("Select Template", selection: $selectedTemplateId) {
                         Text("None").tag(String?.none)
                         ForEach(viewModel.templates) { template in
                             Text(template.name).tag(Optional(template.id))
                         }
                     }
+                    .pickerStyle(MenuPickerStyle())
                     .onChange(of: selectedTemplateId) { newValue in
                         if let templateId = newValue,
                            let template = viewModel.templates.first(where: { $0.id == templateId }) {
@@ -37,21 +37,27 @@ struct AddEntryView: View {
                     }
                 }
                 
-                Section(header: Text("Entry Information")) {
+                // Entry content
+                Section(header: Text("Entry Details").font(.subheadline)) {
                     TextField("Title", text: $title)
+                        .font(.headline)
                     
                     ZStack(alignment: .topLeading) {
                         if content.isEmpty {
-                            Text("Content")
+                            Text("Write your notes here...")
                                 .foregroundColor(.secondary)
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
                         }
                         
                         TextEditor(text: $content)
-                            .frame(minHeight: 100)
+                            .frame(minHeight: 150)
+                            .padding(.horizontal, -5)
                     }
-                    
+                }
+                
+                // Tags & location
+                Section(header: Text("Organization").font(.subheadline)) {
                     TextField("Tags (comma separated)", text: $tags)
                     
                     Picker("Location", selection: $selectedLocation) {
@@ -60,48 +66,64 @@ struct AddEntryView: View {
                             Text(location.name).tag(Optional(location))
                         }
                     }
+                    .pickerStyle(MenuPickerStyle())
                 }
                 
-                Section(header: Text("Media")) {
+                // Media
+                Section(header: Text("Media").font(.subheadline)) {
                     Button(action: {
                         showingImagePicker = true
                     }) {
                         HStack {
                             Image(systemName: "photo")
+                                .foregroundColor(.blue)
                             Text("Add Photo")
                         }
                     }
                     
                     Button(action: {
-                        // Voice-to-text functionality (placeholder)
+                        // Voice-to-text functionality
                         isRecording.toggle()
                         
                         if isRecording {
                             // Start recording (placeholder)
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                                 isRecording = false
-                                recordedText = "This is placeholder voice-to-text content."
+                                let recordedText = "This is placeholder voice-to-text content."
                                 content += "\n\n" + recordedText
                             }
                         }
                     }) {
                         HStack {
                             Image(systemName: isRecording ? "mic.fill" : "mic")
-                                .foregroundColor(isRecording ? .red : .primary)
+                                .foregroundColor(isRecording ? .red : .blue)
                             Text(isRecording ? "Recording..." : "Voice to Text")
                         }
                     }
                     
                     if !mediaItems.isEmpty {
-                        ForEach(mediaItems.indices, id: \.self) { index in
-                            HStack {
-                                Text("Media \(index + 1)")
-                                Spacer()
-                                Button(action: {
-                                    mediaItems.remove(at: index)
-                                }) {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.red)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Added Media")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(mediaItems.indices, id: \.self) { index in
+                                HStack {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.gray.opacity(0.3))
+                                        .frame(width: 40, height: 40)
+                                    
+                                    Text("Media \(index + 1)")
+                                        .font(.subheadline)
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        mediaItems.remove(at: index)
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .foregroundColor(.red)
+                                    }
                                 }
                             }
                         }
@@ -114,6 +136,18 @@ struct AddEntryView: View {
                     presentationMode.wrappedValue.dismiss()
                 },
                 trailing: Button("Save") {
+                    saveEntry()
+                }
+                .disabled(title.isEmpty)
+            )
+            .sheet(isPresented: $showingImagePicker, onDismiss: loadImage) {
+                            ImagePicker(image: $inputImage)
+                        }
+                    }
+                }
+                
+                // Simplified save function
+                private func saveEntry() {
                     let tagArray = tags
                         .split(separator: ",")
                         .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -137,30 +171,33 @@ struct AddEntryView: View {
                     
                     presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(title.isEmpty)
-            )
-            .sheet(isPresented: $showingMilestoneSheet) {
-                AddMilestoneView { newMilestone in
-                    milestones.append(newMilestone)
+                
+                func loadImage() {
+                    guard let inputImage = inputImage else { return }
+                    
+                    // Show loading indicator
+                    let loadingMedia = EntryMedia(
+                        type: .image,
+                        url: "placeholder_uploading",
+                        thumbnailUrl: nil,
+                        createdAt: Date()
+                    )
+                    mediaItems.append(loadingMedia)
+                    
+                    // Upload to Firebase Storage
+                    viewModel.uploadMedia(image: inputImage) { result in
+                        // Remove loading placeholder
+                        if let index = mediaItems.firstIndex(where: { $0.url == "placeholder_uploading" }) {
+                            mediaItems.remove(at: index)
+                        }
+                        
+                        switch result {
+                        case .success(let media):
+                            mediaItems.append(media)
+                        case .failure(let error):
+                            print("Failed to upload image: \(error.localizedDescription)")
+                            // Could show an alert here
+                        }
+                    }
                 }
             }
-            .sheet(isPresented: $showingImagePicker, onDismiss: loadImage) {
-                ImagePicker(image: $inputImage)
-            }
-        }
-    }
-    
-    func loadImage() {
-        guard let inputImage = inputImage else { return }
-        
-        // Upload to Firebase Storage (placeholder)
-        viewModel.uploadMedia(image: inputImage) { result in
-            switch result {
-            case .success(let media):
-                mediaItems.append(media)
-            case .failure(let error):
-                print("Failed to upload image: \(error.localizedDescription)")
-            }
-        }
-    }
-}

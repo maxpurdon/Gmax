@@ -1,17 +1,25 @@
-// MARK: - Add Project View
-import Foundation
 import SwiftUI
-import 
 
+// MARK: - Add Project View
 struct AddProjectView: View {
     @EnvironmentObject var viewModel: ProjectViewModel
     @Environment(\.presentationMode) var presentationMode
     
     @State private var title = ""
     @State private var description = ""
-    @State private var status = ProjectStatus.concept   
+    @State private var status = ProjectStatus.concept
     @State private var showingMilestoneSheet = false
     @State private var milestones: [Milestone] = []
+    
+    private func deleteMilestone(at offsets: IndexSet) {
+        milestones.remove(atOffsets: offsets)
+    }
+    
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }()
     
     var body: some View {
         NavigationView {
@@ -87,8 +95,13 @@ struct AddProjectView: View {
                     viewModel.saveMainProject()
                     presentationMode.wrappedValue.dismiss()
                 }
-                    .disabled(title.isEmpty)
+                .disabled(title.isEmpty)
             )
+            .sheet(isPresented: $showingMilestoneSheet) {
+                AddMilestoneView { newMilestone in
+                    milestones.append(newMilestone)
+                }
+            }
         }
     }
 }

@@ -1,8 +1,12 @@
+//
+//  ProjectViewModel.swift
+//  GMax
+//
+//  Created by Andrew Purdon on 28/02/2025.
+//
 import SwiftUI
-import Firebase
 import FirebaseFirestore
 import FirebaseStorage
-
 // MARK: - View Models
 class ProjectViewModel: ObservableObject {
     @Published var mainProject = MainProject.sample

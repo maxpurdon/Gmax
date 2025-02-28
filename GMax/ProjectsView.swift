@@ -1,102 +1,136 @@
 import SwiftUI
 
-// MARK: - Projects View
 struct ProjectsView: View {
     @EnvironmentObject var viewModel: ProjectViewModel
     @State private var showingAddProject = false
+    @State private var searchText = ""
+    
+    private var filteredProjects: [Project] {
+        if searchText.isEmpty {
+            return viewModel.mainProject.subProjects
+        } else {
+            return viewModel.mainProject.subProjects.filter { project in
+                project.title.lowercased().contains(searchText.lowercased()) ||
+                project.description.lowercased().contains(searchText.lowercased())
+            }
+        }
+    }
     
     var body: some View {
-        NavigationView {
-            VStack {
-                // Main project header
-                VStack(alignment: .leading, spacing: 8) {
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                // Header with search
+                VStack(spacing: 16) {
                     Text(viewModel.mainProject.title)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.system(size: 28, weight: .bold, design: .default))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    Text(viewModel.mainProject.description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Divider()
-                        .padding(.vertical, 8)
+                    SearchBar(text: $searchText, placeholder: "Search projects...")
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
+                .background(Color(.systemBackground))
                 
-                // Sub-projects list
-                List {
-                    ForEach(viewModel.mainProject.subProjects) { project in
-                        NavigationLink(destination: ProjectDetailView(project: project)) {
-                            ProjectRowView(project: project)
+                // Project grid
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                        ForEach(filteredProjects) { project in
+                            NavigationLink(destination: ProjectDetailView(project: project)) {
+                                ProjectCardView(project: project)
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
-                    .onDelete(perform: deleteProject)
+                    .padding(16)
+                    .padding(.bottom, 80) // Space for FAB
                 }
-                .listStyle(InsetGroupedListStyle())
+                .background(Color(.systemGroupedBackground))
             }
-            .navigationBarTitle("Projects", displayMode: .inline)
-            .navigationBarItems(trailing: Button(action: {
+            
+            // FAB
+            Button(action: {
                 showingAddProject = true
             }) {
                 Image(systemName: "plus")
-            })
-            .sheet(isPresented: $showingAddProject) {
-                AddProjectView()
-                    .environmentObject(viewModel)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 60, height: 60)
+                    .background(Color.blue)
+                    .cornerRadius(30)
+                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
             }
+            .padding(.bottom, 16)
         }
-    }
-    
-    func deleteProject(at offsets: IndexSet) {
-        // Remove the projects at the specified indices
-        viewModel.mainProject.subProjects.remove(atOffsets: offsets)
-        viewModel.saveMainProject()
+        .navigationBarTitle("", displayMode: .inline)
+        .navigationBarItems(trailing: Button(action: {
+            // Edit main project (title/description)
+        }) {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 18))
+        })
+        .sheet(isPresented: $showingAddProject) {
+            AddProjectView()
+                .environmentObject(viewModel)
+        }
     }
 }
 
-struct ProjectRowView: View {
+struct ProjectCardView: View {
     let project: Project
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Status indicator
             HStack {
-                Text(project.title)
-                    .font(.headline)
-                
-                Spacer()
+                Circle()
+                    .fill(project.status.color)
+                    .frame(width: 8, height: 8)
                 
                 Text(project.status.rawValue)
-                    .font(.caption)
-                    .padding(4)
-                    .background(project.status.color)
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
-            }
-            
-            Text(project.description)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .lineLimit(2)
-            
-            HStack {
-                Text("\(project.entries.count) entries")
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                Text("Updated \(project.updatedAt, formatter: dateFormatter)")
-                    .font(.caption)
+                Text("\(project.entries.count)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                Image(systemName: "doc.text.fill")
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
-            .padding(.top, 4)
+            
+            // Title and description
+            Text(project.title)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            
+            Text(project.description)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            Spacer()
+            
+            // Updated date
+            Text("Updated \(formatDate(project.updatedAt))")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(16)
+        .frame(height: 150)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
     }
     
-    private let dateFormatter: DateFormatter = {
+    private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
-        return formatter
-    }()
+        return formatter.string(from: date)
+    }
 }

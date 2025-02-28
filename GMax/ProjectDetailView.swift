@@ -78,17 +78,23 @@ struct ProjectDetailView: View {
         .sheet(isPresented: $showingAddEntry) {
             AddEntryView(projectId: project.id)
                 .environmentObject(viewModel)
+                .onDisappear {
+                    // Update project when AddEntryView is dismissed
+                    if let updatedProject = viewModel.mainProject.subProjects.first(where: { $0.id == project.id }) {
+                        project = updatedProject
+                    }
+                }
         }
         .sheet(isPresented: $showingEditProject) {
             EditProjectView(project: $project)
                 .environmentObject(viewModel)
-        }
-        .onChange(of: project) { newProject in
-            // Update the project in the ViewModel when it changes
-            if let index = viewModel.mainProject.subProjects.firstIndex(where: { $0.id == project.id }) {
-                viewModel.mainProject.subProjects[index] = newProject
-                viewModel.saveMainProject()
-            }
+                .onDisappear {
+                    // Update the project in the ViewModel when EditProjectView is dismissed
+                    if let index = viewModel.mainProject.subProjects.firstIndex(where: { $0.id == project.id }) {
+                        viewModel.mainProject.subProjects[index] = project
+                        viewModel.saveMainProject()
+                    }
+                }
         }
     }
 }

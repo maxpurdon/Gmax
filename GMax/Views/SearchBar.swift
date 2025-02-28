@@ -1,3 +1,11 @@
+//
+//  SearchBar.swift
+//  GMax
+//
+//  Created by Andrew Purdon on 28/02/2025.
+//
+
+
 import SwiftUI
 
 struct SearchBar: View {

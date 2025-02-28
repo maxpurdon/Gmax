@@ -1,3 +1,11 @@
+//
+//  EntryDetailView.swift
+//  GMax
+//
+//  Created by Andrew Purdon on 28/02/2025.
+//
+
+
 import SwiftUI
 
 struct EntryDetailView: View {
@@ -157,4 +165,128 @@ struct EditEntryView: View {
     @State private var inputImage: UIImage? = nil
     @State private var isRecording = false
     
-    init
+    init(entry: Binding<Entry>) {
+            self._entry = entry
+            self._title = State(initialValue: entry.wrappedValue.title)
+            self._content = State(initialValue: entry.wrappedValue.content)
+            self._selectedLocation = State(initialValue: entry.wrappedValue.location)
+            self._tags = State(initialValue: entry.wrappedValue.tags.joined(separator: ", "))
+        }
+        
+        var body: some View {
+            NavigationView {
+                Form {
+                    Section(header: Text("Entry Information")) {
+                        TextField("Title", text: $title)
+                        
+                        ZStack(alignment: .topLeading) {
+                            if content.isEmpty {
+                                Text("Content")
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                            }
+                            
+                            TextEditor(text: $content)
+                                .frame(minHeight: 100)
+                        }
+                        
+                        TextField("Tags (comma separated)", text: $tags)
+                        
+                        Picker("Location", selection: $selectedLocation) {
+                            Text("None").tag(Location?.none)
+                            ForEach(viewModel.locations) { location in
+                                Text(location.name).tag(Optional(location))
+                            }
+                        }
+                    }
+                    
+                    Section(header: Text("Media")) {
+                        Button(action: {
+                            showingImagePicker = true
+                        }) {
+                            HStack {
+                                Image(systemName: "photo")
+                                Text("Add Photo")
+                            }
+                        }
+                        
+                        Button(action: {
+                            // Voice-to-text functionality (placeholder)
+                            isRecording.toggle()
+                            
+                            if isRecording {
+                                // Start recording (placeholder)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    isRecording = false
+                                    let recordedText = "This is placeholder voice-to-text content."
+                                    content += "\n\n" + recordedText
+                                }
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: isRecording ? "mic.fill" : "mic")
+                                    .foregroundColor(isRecording ? .red : .primary)
+                                Text(isRecording ? "Recording..." : "Voice to Text")
+                            }
+                        }
+                        
+                        if !entry.media.isEmpty {
+                            ForEach(entry.media.indices, id: \.self) { index in
+                                HStack {
+                                    Text("Media \(index + 1)")
+                                    Spacer()
+                                    Button(action: {
+                                        var updatedMedia = entry.media
+                                        updatedMedia.remove(at: index)
+                                        entry.media = updatedMedia
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .foregroundColor(.red)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .navigationBarTitle("Edit Entry", displayMode: .inline)
+                .navigationBarItems(
+                    leading: Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    },
+                    trailing: Button("Save") {
+                        let tagArray = tags
+                            .split(separator: ",")
+                            .map { $0.trimmingCharacters(in: .whitespaces) }
+                            .filter { !$0.isEmpty }
+                        
+                        entry.title = title
+                        entry.content = content
+                        entry.location = selectedLocation
+                        entry.tags = tagArray
+                        entry.updatedAt = Date()
+                        
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .disabled(title.isEmpty)
+                )
+                .sheet(isPresented: $showingImagePicker, onDismiss: loadImage) {
+                    ImagePicker(image: $inputImage)
+                }
+            }
+        }
+        
+        func loadImage() {
+            guard let inputImage = inputImage else { return }
+            
+            // Upload to Firebase Storage
+            viewModel.uploadMedia(image: inputImage) { result in
+                switch result {
+                case .success(let media):
+                    entry.media.append(media)
+                case .failure(let error):
+                    print("Failed to upload image: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
