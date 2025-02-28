@@ -15,7 +15,7 @@ struct ContentView: View {
             }
             
             NavigationView {
-                EntrieensView()
+                EntriesView()
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .environmentObject(viewModel)
